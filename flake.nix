@@ -1,32 +1,23 @@
 {
   description = "A very basic flake";
 
-  outputs = { self, nixpkgs }:
-    let
-      pkgs = import nixpkgs { system = "x86_64-linux"; overlays = [ self.overlays.default ]; };
-    in
-    {
+  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs.nixpkgs.url = "nixpkgs/nixpkgs-unstable";
 
-      overlays.default = self: super: {
-        espresso =
-          pkgs.stdenv.mkDerivation rec {
-            name = "espresso";
-            version = "2.4";
-            src = pkgs.fetchFromGitHub {
-              owner = "chipsalliance";
-              repo = "espresso";
-              rev = "v${version}";
-              sha256 = "sha256-z5By57VbmIt4sgRgvECnLbZklnDDWUA6fyvWVyXUzsI=";
-            };
-
-            nativeBuildInputs = with pkgs;[ cmake ];
-          };
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        rec {
+          packages.espresso = pkgs.callPackage ./espresso.nix { };
+          packages.default = packages.espresso;
+          formatter = pkgs.nixpkgs-fmt;
+        })
+    // {
+      overlays.default = final: prev: {
+        inherit (self.packages.${final.system}) espresso;
       };
-
-      packages.x86_64-linux.espresso = pkgs.espresso;
-      packages.x86_64-linux.default = self.packages.x86_64-linux.espresso;
-
-      formatter.x86_64-linux = pkgs.nixpkgs-fmt;
-
     };
 }
